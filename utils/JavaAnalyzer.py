@@ -1,6 +1,5 @@
 import tree_sitter_java as ts_java
 from loguru import logger
-from pydantic import validate_email
 from tree_sitter import Parser, Language, Node
 
 from entities.CodeEntities import Method, Class, Field
@@ -93,12 +92,12 @@ def method_decl_node_to_method_obj(node: Node, pkg_name: str, class_name: str, )
     for p in parameter_nodes:
         parameters.append(
             Field(
-            name=p.child_by_field_name('name').text.decode('utf-8'),
-            type=p.child_by_field_name('type').text.decode('utf-8'),
-            modifier='',
-            value='',
-            docstring=''
-        ))
+                name=p.child_by_field_name('name').text.decode('utf-8'),
+                type=p.child_by_field_name('type').text.decode('utf-8'),
+                modifier='',
+                value='',
+                docstring=''
+            ))
     return_type = node.child_by_field_name('type').text.decode('utf-8')
     return Method(
         name=node.child_by_field_name('name').text.decode('utf-8'),
@@ -135,7 +134,7 @@ def field_decl_node_to_field_obj(node: Node) -> [Field | None]:
             modifier=modifier,
             type=type,
             value=value,
-            text = node.text.decode('utf-8')
+            text=node.text.decode('utf-8')
         )
     else:
         logger.warning(f"No declarator found for {node.text.decode('utf-8')}")
@@ -178,8 +177,8 @@ def parse_class_object_from_file_content(file_content: str, target_class_name: [
         modifier=get_modifier(class_decl_node),
         text=class_decl_node.text.decode('utf-8'),
         imports=imports,
-        interface = interface,
-        superclass = superclass
+        interface=interface,
+        superclass=superclass
     )
 
     class_body = class_decl_node.child_by_field_name('body')
