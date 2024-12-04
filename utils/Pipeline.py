@@ -3,9 +3,12 @@ import os.path
 from loguru import logger
 from tqdm import *
 
-from entities.CodeEntities import Method, Class
+from entities.CodeEntities import Class
 from utils.FileUtils import traverse_files, read_file_with_UTF8
 from utils.JavaAnalyzer import parse_class_object_from_file_content
+from utils.UTGenerator import BasicGenerator
+
+debug = True
 
 
 def static_analyze(code_base: str, source_code_path: str) -> list[Class]:
@@ -32,7 +35,8 @@ def static_analyze(code_base: str, source_code_path: str) -> list[Class]:
             # 确保确实是一个 java 文件
             assert extension == '.java'
             file_content = read_file_with_UTF8(file)
-            class_instance = parse_class_object_from_file_content(file_content=file_content, target_class_name=target_class_name)
+            class_instance = parse_class_object_from_file_content(file_content=file_content,
+                                                                  target_class_name=target_class_name)
             if class_instance:
                 classes.append(class_instance)
         except AssertionError as ae:
@@ -44,6 +48,26 @@ def static_analyze(code_base: str, source_code_path: str) -> list[Class]:
 
 def generate_unit_tests(classes: list) -> list:
     generated_test_classes = []
+    generator = BasicGenerator()
+    if debug:
+        classes = classes[:1]
+    for class_instance in tqdm(classes, desc='Generating test classes'):
+        target_methods = class_instance.public_methods
+        if debug:
+            target_methods = target_methods[:2]
+        logger.info(f'Class {class_instance.name} has {len(target_methods)} to be tested.')
+        for method_instance in tqdm(target_methods, desc='Generating'):
+            response = generator.generate(
+                method_instance=method_instance,
+                class_instance=class_instance
+            )
+            generated_test_classes.append( {
+                'focal_method': method_instance.signature,
+                'focal_class':class_instance.signature,
+                'response': response
+            })
+            pass
+
     return generated_test_classes
 
 

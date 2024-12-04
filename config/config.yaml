@@ -1,2 +1,9 @@
 base:
   project_home: /path/to/the/root/of/all/projects
+llm:
+  model: "DeepSeek"
+  key: "EMPTYKEY"
+  api: "https://api.deepseek.com"
+  temperature: 1.0
+  top_p: 0.95
+  max_tokens: 4000
