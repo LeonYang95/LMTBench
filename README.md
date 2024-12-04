@@ -1,6 +1,6 @@
-# LLM4UT
+# UTGen_LLM
 This is a project of LLM-based unit test generation.
-For a given Java project, LLM4UT generates unit tests for each **public** method in the project, one test class for each method.
+For a given Java project, UTGen_LLM generates unit tests for each **public** method in the project, one test class for each method.
 
 ## Program Structure
 The program is structured as follows:
@@ -33,7 +33,7 @@ cp config.yaml my_config.yaml
 2. Open `my_config.yaml`, and change the following configuration settings.
 ```yaml
 base:
-  project_home: /path/to/LLM4UT
+  project_home: /path/to/UTGen_LLM
 llm:
   model: "Your Model"
   key: "Empty Key"
