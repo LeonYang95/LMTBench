@@ -42,7 +42,7 @@ llm:
   top_p: 0.95
   max_tokens: 4096
 ```
-3. For debugging, please go to the `utils/Pipeline.py` file, and set the value of `debug` to `True` (line 11). It will only run 2 methods in one class to verify that the script works fine.
+3. For debugging, please go to the [utils/Pipeline.py](https://github.com/LeonYang95/LMTBench/blob/aec2f899e8b8eced8dbb654139c69ddea4379a65/utils/Pipeline.py) file, and set the value of `debug` to `True` (line 11). It will only run 2 methods in one class to verify that the script works fine.
 
 4. Run `main.py` with proper parameters following the instruction.
 ```shell
