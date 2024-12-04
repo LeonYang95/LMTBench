@@ -57,5 +57,4 @@ if __name__ == '__main__':
     # results = post_processing(generated_test_classes)
     record_final_test_classes(generated_test_classes, args.output_file)
     logger.info('All Done')
-
     pass
