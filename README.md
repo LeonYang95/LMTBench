@@ -65,4 +65,14 @@ options:
 4. Find the generated test classes in the `output-file` file.
 
 
-
+## Reference
+Please cite our recent work in LLM-based unit test generation if you find this repository useful! Thank you very much!
+```
+@inproceedings{yang2024evaluation,
+  title={On the Evaluation of Large Language Models in Unit Test Generation},
+  author={Yang, Lin and Yang, Chen and Gao, Shutao and Wang, Weijing and Wang, Bo and Zhu, Qihao and Chu, Xiao and Zhou, Jianyi and Liang, Guangtai and Wang, Qianxiang and others},
+  booktitle={Proceedings of the 39th IEEE/ACM International Conference on Automated Software Engineering},
+  pages={1607--1619},
+  year={2024}
+}
+```
