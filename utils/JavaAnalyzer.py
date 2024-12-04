@@ -1,60 +1,179 @@
 import tree_sitter_java as ts_java
-from tree_sitter import Parser, Language
+from loguru import logger
+from tree_sitter import Parser, Language, Node
 
-from entities.CodeEntities import Method
+from entities.CodeEntities import Method, Class, Field
 
 # Initialize the parser with the Java language
 parser = Parser(Language(ts_java.language()))
 
 
-def get_modifiers(node):
+def get_modifier(node: Node) -> str:
+    return ' '.join([n.text.decode('utf-8') for n in node.children if n.type == 'modifiers'])
+
+
+def _find_package_name(root_node: Node) -> str:
+    # 查找 package 定义
+    package_decl_node = next(filter(lambda n: n.type == 'package_declaration', root_node.children))
+
+    if package_decl_node:
+        try:
+            assert isinstance(package_decl_node, Node)
+            assert package_decl_node.child(1).type == 'scoped_identifier'  # 防止 magic number 出错
+            pkg_name = package_decl_node.child(1).text.decode('utf-8')
+        except AssertionError:
+            # just in case.
+            logger.error(
+                f'Package declaration node is not as expected. Expected: package_declaration, got: {package_decl_node.type}; Expected child type: scoped_identifier, got: {package_decl_node.child(1).type}.')
+            pkg_name = ''
+        pass
+    else:
+        pkg_name = ''
+
+    return pkg_name
+
+
+def _find_class_declaration_node(root_node: Node, target_class_name: [str | None]) -> [None | Node]:
+    # 查找目标类定义节点
+    class_decl_node = None
+    class_decl_nodes = [n for n in root_node.children if n.type == 'class_declaration']
+    if target_class_name:
+        # 如果有目标类的名字（根据文件名获得），那么根据名字查找，应该只有一个，用 next 获取
+        class_decl_node = next(
+            filter(lambda n: n.child_by_field_name('name').text.decode('utf-8') == target_class_name, class_decl_nodes),
+            None)
+    elif len(class_decl_nodes) >= 1:
+        # 没有设定目标名字，默认取第一个 public 且非 abstract 的 class node。Interface 是另外的节点定义类型，在过滤 class_declaration 时已经过滤掉了。
+        for node in class_decl_nodes:
+            modifiers = next(filter(lambda n: n.child.type == 'modifiers', node.children), None)
+            if modifiers:
+                modifier_text = modifiers.text.decode('utf-8')
+                if 'public' in modifier_text and 'abstract' not in modifier_text:
+                    class_decl_node = node
+                    break
+
+    # 判断是否找到
+    if not class_decl_node:
+        logger.warning(f'Class declaration not found. Please refer to the debug information for debugging.')
+        logger.debug(root_node.text.decode('utf-8'))
+
+    return class_decl_node
+
+
+def _find_imports(root_node: Node) -> list[str]:
+    import_nodes = [n for n in root_node.children if n.type == 'import_declaration']
+    try:
+        for node in import_nodes:
+            assert node.child(1).type == 'scoped_identifier'
+            break
+    except AssertionError:
+        logger.error('The imported class is not the second child in the import declaration node anymore, please check.')
+        return [n.text.decode('utf-8') for n in import_nodes]
+    return [n.child(1).text.decode('utf-8') for n in import_nodes] if len(import_nodes) != 0 else []
+
+
+def method_decl_node_to_method_obj(node: Node, pkg_name: str, class_name: str, ) -> Method:
     """
-    Extracts the modifiers from a given node.
+    Converts a method declaration node to a Method object.
 
     Args:
-        node (tree_sitter.Node): The node to extract modifiers from.
+        node (Node): The method declaration node.
+        pkg_name (str): The package name of the class containing the method.
+        class_name (str): The name of the class containing the method.
 
     Returns:
-        list: A list of modifier texts.
+        Method: An object representing the method.
     """
-    return [n.text for n in node.children if n.type == 'modifiers']
+    docstring = node.prev_sibling.text.decode('utf-8') if node.prev_sibling.type == 'block_comment' else ''
+    modifier = get_modifier(node)
+    method_text = node.text.decode('utf-8')
+    parameter_nodes = [n for n in node.child_by_field_name('parameters').children if n.type not in ['(', ')', ',']]
+    parameters = []
+    for p in parameter_nodes:
+        parameters.append(Field(
+            name=p.child_by_field_name('name').text.decode('utf-8'),
+            type=p.child_by_field_name('type').text.decode('utf-8'),
+            modifier='',
+            value='',
+            docstring=''
+        ))
+    return_type = node.child_by_field_name('type').text.decode('utf-8')
+    return Method(
+        name=node.child_by_field_name('name').text.decode('utf-8'),
+        modifier=modifier,
+        text=method_text,
+        return_type=return_type,
+        params=parameters,
+        class_sig=pkg_name + '.' + class_name,
+        docstring=docstring
+    )
 
 
-def parse_methods(class_str: str, file_path: [str | None]) -> list:
-    tree = parser.parse(bytes(class_str, 'utf-8'))
-    methods = []
-    class_decl_nodes = [n for n in tree.root_node.children if n.type == 'class_declaration']
-    if len(class_decl_nodes) == 0:
-        return methods
-    package_decl_node = [n for n in tree.root_node.children if n.type == 'package_declaration'][0]
-    pkg_name = package_decl_node.text.decode('utf-8')[:-1].split()[-1].strip()
-    class_decl_node = class_decl_nodes[0]
-    if len(class_decl_nodes) > 1:
-        candidates = [n for n in class_decl_nodes if 'public' in get_modifiers(n)]
-        if len(candidates) == 0:
-            return methods
-        else:
-            class_decl_node = candidates[0]
-    try:
-        class_body = class_decl_node.child_by_field_name('body')
-        for child in class_body.children:
-            if child.type == 'method_declaration':
-                modifiers = []
-                modifier_node = [n for n in child.children if n.type == 'modifiers']
-                for mod in modifier_node:
-                    modifiers.extend([m.strip() for m in mod.text.decode('utf-8').split() if m != ''])
-                method_text = child.text.decode('utf-8')
-                parameters = [n for n in child.child_by_field_name('parameters').children if
-                              n.type not in ['(', ')', ',']]
-                return_type = child.child_by_field_name('type').text.decode('utf-8')
-                methods.append(Method(
-                    name=child.child_by_field_name('name').text.decode('utf-8'),
-                    modifiers=modifiers,
-                    text=method_text,
-                    return_type=return_type,
-                    params=[p.text.decode('utf-8') for p in parameters],
-                    class_sig=pkg_name + '.' + class_decl_node.child_by_field_name('name').text.decode('utf-8')
-                ))
-        return methods
-    except TypeError:
-        return methods
+def field_decl_node_to_field_obj(node: Node) -> [Field | None]:
+    """
+    Converts a field declaration node to a Field object.
+
+    Args:
+        node (Node): The field declaration node.
+
+    Returns:
+        Field | None: An object representing the field, or None if no declarator is found.
+    """
+    docstring = node.prev_sibling.text.decode('utf-8') if node.prev_sibling.type == 'block_comment' else ''
+    modifier = get_modifier(node)
+    type = node.child_by_field_name('type').text.decode('utf-8')
+    declarator = node.child_by_field_name('declarator')
+    if declarator:
+        name = declarator.child_by_field_name('name').text.decode('utf-8')
+        value_node = declarator.child_by_field_name('value')
+        value = value_node.text.decode('utf-8') if value_node else ''
+        return Field(
+            docstring=docstring,
+            name=name,
+            modifier=modifier,
+            type=type,
+            value=value
+        )
+    else:
+        logger.warning(f"No declarator found for {node.text.decode('utf-8')}")
+        return None
+
+
+def parse_class_object_from_file_content(file_content: str, target_class_name: [str | None]) -> [Class | None]:
+    """
+    Parses the class object from the given file content.
+
+    Args:
+        file_content (str): The content of the file to parse.
+        target_class_name (str | None): The name of the target class to find. If None, the first public non-abstract class is used.
+
+    Returns:
+        Class | None: An object representing the class, or None if the class declaration is not found.
+    """
+    tree = parser.parse(bytes(file_content, 'utf-8'))
+    pkg_name = _find_package_name(tree.root_node)
+    class_decl_node = _find_class_declaration_node(tree.root_node, target_class_name)
+    imports = _find_imports(tree.root_node)
+    if not class_decl_node:
+        return None
+
+    class_obj = Class(
+        package_name=pkg_name,
+        name=class_decl_node.child_by_field_name('name').text.decode('utf-8'),
+        modifier=get_modifier(class_decl_node),
+        text=class_decl_node.text.decode('utf-8'),
+        imports=imports
+    )
+
+    class_body = class_decl_node.child_by_field_name('body')
+    for child in class_body.children:
+        if child.type == 'method_declaration':
+            # 只接受块注释的 docstring
+            method_obj = method_decl_node_to_method_obj(child, pkg_name, class_obj.name)
+            class_obj.add_method(method_obj)
+        elif child.type == 'field_declaration':
+            field_obj = field_decl_node_to_field_obj(child)
+            if field_obj: class_obj.add_field(field_obj)
+            pass
+
+    return class_obj

@@ -5,7 +5,7 @@ sys.path.extend(['.', '..'])
 from tqdm import tqdm
 from loguru import logger
 from utils.FileUtils import traverse_files
-from utils.JavaAnalyzer import parse_methods
+from utils.JavaAnalyzer import parse_class_object_from_file_content
 from utils.TestRunner import mvn_test, mvn_compile
 
 if __name__ == '__main__':
@@ -15,7 +15,7 @@ if __name__ == '__main__':
     methods = []
     for file in tqdm(files, desc='Parsing files'):
         with open(file, 'r', encoding='utf-8') as reader:
-            methods.extend(parse_methods(reader.read(), file))
+            methods.extend(parse_class_object_from_file_content(reader.read(), file))
     logger.info(f'Found {len(methods)} methods in total, start filtering.')
     public_methods = [method for method in methods if 'public' in method.modifiers]
     logger.info(f'Public methods: {len(public_methods)}')
