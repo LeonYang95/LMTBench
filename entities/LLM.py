@@ -26,6 +26,7 @@ class DeepSeek(LLM):
             self.temperature = config['llm']['temperature']
             self.top_p = config['llm']['top_p']
             self.max_tokens = config['llm']['max_tokens']
+            self.model = config['llm']['model']
             self.client = OpenAI(api_key=self.api_key, base_url=self.base_url)
         except Exception:
             logger.error("Error loading configuration: llm.key or llm.api, please check the configuration file.")
@@ -33,7 +34,7 @@ class DeepSeek(LLM):
 
     def get_response(self, messages):
         response = self.client.chat.completions.create(
-            model='deepseek-coder',
+            model=self.model,
             messages=messages,
             stream=False,
             temperature=self.temperature,
@@ -52,7 +53,7 @@ class DeepSeek(LLM):
             'prefix': True
         })
         response = extend_client.chat.completions.create(
-            model='deepseek-coder',
+            model=self.model,
             messages=new_message,
             temperature=self.temperature,
             top_p=self.top_p,
