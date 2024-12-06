@@ -50,11 +50,11 @@ def generate_unit_tests(classes: list) -> list:
     generated_test_classes = []
     generator = BasicGenerator()
     if debug:
-        classes = classes[:1]
+        classes = classes[:2]
     for class_instance in tqdm(classes, desc='Generating test classes'):
         target_methods = class_instance.public_methods
         if debug:
-            target_methods = target_methods[:2]
+            target_methods = target_methods[:5]
         logger.info(f'Class {class_instance.name} has {len(target_methods)} to be tested.')
         for method_instance in tqdm(target_methods, desc='Generating'):
             response = generator.generate(
@@ -71,6 +71,9 @@ def generate_unit_tests(classes: list) -> list:
     return generated_test_classes
 
 
-def post_processing(generated_test_classes: list) -> dict:
-    final_test_classes = {}
+def post_processing(generations: list[dict]) -> list[dict]:
+    final_test_classes = []
+    for generation in tqdm(generations, desc="Post processing"):
+
+        pass
     return final_test_classes

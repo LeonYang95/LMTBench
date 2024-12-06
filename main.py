@@ -6,7 +6,7 @@ import os
 import json
 import argparse
 from loguru import logger
-from utils.Pipeline import static_analyze, generate_unit_tests
+from utils.Pipeline import static_analyze, generate_unit_tests, post_processing
 
 code_base = os.path.abspath(os.path.dirname(__file__))
 
@@ -14,9 +14,9 @@ code_base = os.path.abspath(os.path.dirname(__file__))
 def load_arg_params():
     parser = argparse.ArgumentParser(description='LLM-based unit test generation.')
     parser.add_argument('--project', type=str, help='Project name.')
-    parser.add_argument('--project-path', type=str, help='Path to the repository code base.')
+    parser.add_argument('--project-path', type=str, help='Path to the repository code base.',required=True)
     parser.add_argument('--config-file', type=str, default=f"{code_base}/config/basic_config.yaml",
-                        help='Path to the configuration file')
+                        help='Path to the configuration file', required=True)
     parser.add_argument('--source-code-path', type=str, default=f"src/main",
                         help='Relative path from the project path to the source code. By default, it is set as src/main')
     parser.add_argument('--test-code-path', type=str, default=f"src/test",
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     generated_test_classes = generate_unit_tests(classes)
     logger.info('Generation finished, start post processing.')
     # 后处理
-    # results = post_processing(generated_test_classes)
-    record_final_test_classes(generated_test_classes, args.output_file)
+    results = post_processing(generated_test_classes)
+    record_final_test_classes(results, args.output_file)
     logger.info('All Done')
     pass
