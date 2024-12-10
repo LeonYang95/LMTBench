@@ -193,3 +193,30 @@ def parse_class_object_from_file_content(file_content: str, target_class_name: [
             pass
 
     return class_obj
+
+
+def _find_invoked_method_names(method_decl_node:Node)-> set[str]:
+    invocation_nodes = set()
+    query = Language(ts_java.language()).query("(method_invocation name: (_)@name)")
+    cand_nodes = query.captures(method_decl_node)
+    for node in cand_nodes['name']:
+        invocation_nodes.add(node.text.decode('utf-8'))
+    return invocation_nodes
+    pass
+
+
+def extract_method_invocation(file_content: str, target_class_name: [None | str] = None,
+                              target_method_name: [None | str] = None) -> set:
+    tree = parser.parse(bytes(file_content, 'utf-8'))
+    method_invocations = set()
+    cls_decl_node = _find_class_declaration_node(tree.root_node, target_class_name)
+    if cls_decl_node:
+        cls_body_node = cls_decl_node.child_by_field_name('body')
+        for child in cls_body_node.children:
+            if child.type == 'method_declaration':
+                method_name = child.child_by_field_name('name').text.decode('utf-8')
+                if target_method_name and method_name == target_method_name:
+                    method_invocations = _find_invoked_method_names(child)
+                    break
+    return method_invocations
+    pass
