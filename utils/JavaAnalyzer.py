@@ -14,7 +14,7 @@ def get_modifier(node: Node) -> str:
 
 def _find_package_name(root_node: Node) -> str:
     # 查找 package 定义
-    package_decl_node = next(filter(lambda n: n.type == 'package_declaration', root_node.children))
+    package_decl_node = next(filter(lambda n: n.type == 'package_declaration', root_node.children), None)
 
     if package_decl_node:
         try:
@@ -45,7 +45,7 @@ def _find_class_declaration_node(root_node: Node, target_class_name: [str | None
     elif len(class_decl_nodes) >= 1:
         # 没有设定目标名字，默认取第一个 public 且非 abstract 的 class node。Interface 是另外的节点定义类型，在过滤 class_declaration 时已经过滤掉了。
         for node in class_decl_nodes:
-            modifiers = next(filter(lambda n: n.child.type == 'modifiers', node.children), None)
+            modifiers = next(filter(lambda n: n.type == 'modifiers', node.children), None)
             if modifiers:
                 modifier_text = modifiers.text.decode('utf-8')
                 if 'public' in modifier_text and 'abstract' not in modifier_text:
@@ -147,7 +147,7 @@ def field_decl_node_to_field_obj(node: Node) -> [Field | None]:
         return None
 
 
-def parse_class_object_from_file_content(file_content: str, target_class_name: [str | None]) -> [Class | None]:
+def parse_class_object_from_file_content(file_content: str, target_class_name: [str | None] = None) -> [Class | None]:
     """
     Parses the class object from the given file content.
 
@@ -201,7 +201,7 @@ def parse_class_object_from_file_content(file_content: str, target_class_name: [
     return class_obj
 
 
-def _find_invoked_method_names(method_decl_node:Node)-> set[str]:
+def _find_invoked_method_names(method_decl_node: Node) -> set[str]:
     invocation_nodes = set()
     query = Language(ts_java.language()).query("(method_invocation name: (_) @name)")
     cand_nodes = query.captures(method_decl_node)
