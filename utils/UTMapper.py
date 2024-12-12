@@ -67,9 +67,9 @@ def process_one_bug(bug_id, paths):
                 except UnicodeDecodeError:
                     logger.warning(f"{bug_id} contains non-utf-8 encoded files.")
                     continue
-                tc_invoked_methods = extract_method_invocation(test_class, target_class_name=test_class_name,
+                tc_invoked_method_list = extract_method_invocation(test_class, target_class_name=test_class_name,
                                                                target_method_name=tc_signature.split('::')[-1])
-
+                tc_invoked_methods = set(tc_invoked_method_list)
                 if not tc_invoked_methods:
                     logger.warning(f'No method invocation found in {tc_signature} for {bug_id} bug.')
                     continue
@@ -103,6 +103,7 @@ def process_one_bug(bug_id, paths):
                         'source_file': source_class_file,
                         'focal_method': focal_method_obj.text,  # focal method
                         'test_case': test_method_obj.text,  # test method
+                        'test_case_invocations': tc_invoked_method_list,
                         'test_class': {
                             'path': test_class_file,
                             'imports': test_cls_obj.imports,  # 引用
@@ -134,7 +135,7 @@ if __name__ == '__main__':
     code_base = os.path.join(os.path.dirname(os.path.abspath(__file__)),'..')
     with open(os.path.join(code_base,'bug_path_mapping.json'),'r') as r:
         bug_paths = json.load(r)
-    output_writer = open(os.path.join(code_base,'outputs/example.jsonl'),'w',encoding='utf-8')
+    output_writer = open(os.path.join(code_base,'outputs/defects4j_inputs.jsonl'),'w',encoding='utf-8')
     for bug_id, paths in tqdm(bug_paths.items()):
         jsondict = process_one_bug(bug_id, paths)
         if jsondict:
