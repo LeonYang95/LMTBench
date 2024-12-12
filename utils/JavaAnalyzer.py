@@ -62,14 +62,7 @@ def _find_class_declaration_node(root_node: Node, target_class_name: [str | None
 
 def _find_imports(root_node: Node) -> list[str]:
     import_nodes = [n for n in root_node.children if n.type == 'import_declaration']
-    try:
-        for node in import_nodes:
-            assert node.child(1).type == 'scoped_identifier'
-            break
-    except AssertionError:
-        logger.error('The imported class is not the second child in the import declaration node anymore, please check.')
-        return [n.text.decode('utf-8') for n in import_nodes]
-    return [n.child(1).text.decode('utf-8') for n in import_nodes] if len(import_nodes) != 0 else []
+    return [n.text.decode('utf-8') for n in import_nodes] if import_nodes else []
 
 
 def method_decl_node_to_method_obj(node: Node, pkg_name: str, class_name: str, ) -> Method:
@@ -90,14 +83,27 @@ def method_decl_node_to_method_obj(node: Node, pkg_name: str, class_name: str, )
     parameter_nodes = [n for n in node.child_by_field_name('parameters').children if n.type not in ['(', ')', ',']]
     parameters = []
     for p in parameter_nodes:
-        parameters.append(
-            Field(
-                name=p.child_by_field_name('name').text.decode('utf-8'),
-                type=p.child_by_field_name('type').text.decode('utf-8'),
-                modifier='',
-                value='',
-                docstring=''
-            ))
+        if p.child_by_field_name('name') and p.child_by_field_name('type'):
+            parameters.append(
+                Field(
+                    name=p.child_by_field_name('name').text.decode('utf-8'),
+                    type=p.child_by_field_name('type').text.decode('utf-8'),
+                    modifier='',
+                    value='',
+                    docstring=''
+                ))
+        else:
+            parameters.append(
+                Field(
+                    name=p.text.decode('utf-8'),
+                    type='',
+                    modifier='',
+                    value='',
+                    docstring='',
+                    text=p.text.decode('utf-8')
+                )
+            )
+
     return_type = node.child_by_field_name('type').text.decode('utf-8')
     return Method(
         name=node.child_by_field_name('name').text.decode('utf-8'),
@@ -197,12 +203,13 @@ def parse_class_object_from_file_content(file_content: str, target_class_name: [
 
 def _find_invoked_method_names(method_decl_node:Node)-> set[str]:
     invocation_nodes = set()
-    query = Language(ts_java.language()).query("(method_invocation name: (_)@name)")
+    query = Language(ts_java.language()).query("(method_invocation name: (_) @name)")
     cand_nodes = query.captures(method_decl_node)
+    if 'name' not in cand_nodes:
+        return set()
     for node in cand_nodes['name']:
         invocation_nodes.add(node.text.decode('utf-8'))
     return invocation_nodes
-    pass
 
 
 def extract_method_invocation(file_content: str, target_class_name: [None | str] = None,
