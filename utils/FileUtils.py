@@ -4,6 +4,7 @@ sys.path.extend(['.', '..'])
 import os
 import json
 from loguru import logger
+from config import content_path, d4j_project_base
 
 NOT_JAVA_FILES = [
     'module-info',
@@ -116,3 +117,25 @@ def load_jsonl_file_as_dict(file_path) -> dict:
                     d = json.loads(line)
                     res[d['id']] = d
         return res
+
+
+def write_test_class(bug_id, version, content):
+    test_file_dir, test_file_path = _get_test_class_path(bug_id, version)
+    if not os.path.exists(test_file_dir):
+        os.makedirs(test_file_dir)
+    with open(test_file_path, "w", encoding="utf-8") as writer:
+        writer.write(content)
+    pass
+
+
+def _get_test_class_path(bug_id, version):
+    if content_path[bug_id]["test"][0] != "/":
+        test_base = content_path[bug_id]["test"]
+    else:
+        test_base = content_path[bug_id]["test"][1:]
+    test_base_dir = os.path.join(d4j_project_base, bug_id, version, test_base)
+
+    # 单列一个路径，防止影响已有的测试用例
+    test_file_dir = os.path.join(str(test_base_dir), 'org/llm')
+    res_file_path = os.path.join(str(test_file_dir), "LLMTests.java")
+    return test_file_dir, res_file_path

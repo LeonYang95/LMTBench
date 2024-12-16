@@ -227,3 +227,21 @@ def extract_method_invocation(file_content: str, target_class_name: [None | str]
                     break
     return method_invocations
     pass
+
+def extract_assertion_from_response(response:str):
+    lines = response.split('\n')
+    in_block =False
+    cand_lines = []
+    for line in lines:
+        if line.startswith('```'):
+            if in_block:
+                break
+            else:
+                in_block = True
+                continue
+        else:
+            if line.strip().startswith('Assert'):
+                cand_lines.append(line[7:])
+            else:
+                continue
+    return '\n'.join(cand_lines)
