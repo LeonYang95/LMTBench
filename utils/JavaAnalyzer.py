@@ -228,11 +228,13 @@ def extract_method_invocation(file_content: str, target_class_name: [None | str]
     return method_invocations
     pass
 
-def extract_assertion_from_response(response:str):
+
+def extract_assertion_from_response(response: str):
     lines = response.split('\n')
-    in_block =False
+    in_block = False
     cand_lines = []
     for line in lines:
+        line = line.strip()
         if line.startswith('```'):
             if in_block:
                 break
@@ -240,8 +242,58 @@ def extract_assertion_from_response(response:str):
                 in_block = True
                 continue
         else:
-            if line.strip().startswith('Assert'):
+            if line.startswith('Assert'):
                 cand_lines.append(line[7:])
+            elif line.startswith('assert'):
+                cand_lines.append(line)
             else:
                 continue
     return '\n'.join(cand_lines)
+
+
+def replace_assertion(test_prefix: str, new_assertion: str) -> str:
+    new_test_case = ''
+    assertion_to_be_replaced = None
+
+    # 避免出现语法错误
+    test_prefix = test_prefix.replace('<expected_value>', '"<expected_value>"')
+
+    # 组装一个测试类，方便 parsing
+    tmp_cls = 'public class ABC{' + test_prefix + '}'
+
+    tree = parser.parse(bytes(tmp_cls, 'utf-8'))
+    method_decl_node = tree.root_node.children[0].child_by_field_name('body').children[1]
+    method_body_node = method_decl_node.child_by_field_name('body')
+    query = Language(ts_java.language()).query("(method_invocation name: (identifier) @name)")
+    method_invocation_nodes = query.captures(method_body_node)
+
+    # 根据调用函数的名字追溯 statement
+    names = method_invocation_nodes['name']
+    for name in names:
+        if name.text.decode('utf-8') == 'assertEquals':
+            assertion_to_be_replaced = name.parent.parent
+            assert assertion_to_be_replaced.type == 'expression_statement'
+            assertion_to_be_replaced = assertion_to_be_replaced.text.decode('utf-8')
+            break
+
+    if not assertion_to_be_replaced:
+        logger.error(f'No assertEquals statement found in {test_prefix}')
+        pass
+    else:
+        new_test_case = test_prefix.replace(assertion_to_be_replaced, new_assertion)
+    return new_test_case
+
+def find_params_in_assertion(assertion:str)->list[str]:
+    params = []
+    cls_str = 'public class ABC {\nvoid testA(){\n' + assertion + '\n}\n}'
+    tree = parser.parse(bytes(cls_str, 'utf-8'))
+    method_decl_node = tree.root_node.children[0].child_by_field_name('body').children[1]
+    method_body_node = method_decl_node.child_by_field_name('body')
+    assert len(method_body_node.children) == 3
+    method_invocation = method_body_node.children[1].children[0]
+    assert method_invocation.type == 'method_invocation'
+    argument_list_node = method_invocation.child_by_field_name('arguments')
+    for arg in argument_list_node.children:
+        if arg.type not in [',', '(', ')']:
+            params.append(arg.text.decode('utf-8'))
+    return params
